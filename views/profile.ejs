@@ -1,0 +1,41 @@
+<div class="profile">
+<div class="user">
+<h3><%= user.name %></h3>
+
+<h4><%= user.email %></h4>
+
+</div>
+
+
+
+<div class="pass-reset">
+    <h3>Change Your Password</h3>
+
+<% if(id == user._id){ %>
+
+    <!-- if user matches the show this form -->
+
+    <form action="/users/update/<%= user._id %>"  method="POST">
+
+          <label for="old"> Old password</label>
+        <input type="password" name ="old" placeholder="Old Password"  required>
+        <label for="new"> New password</label>
+
+        <input type="password" name="new" placeholder="New Password" required>
+
+        <input type="hidden" name ="email" placeholder="Your Email" value="user.email" required>
+
+       
+        <input type="submit" class="btn" value='submit'>
+</form>
+<%} %>
+</div>
+
+
+
+</div>
+
+
+
+
+

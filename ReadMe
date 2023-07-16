@@ -1,0 +1,10 @@
+Project : Nodejs Authentication
+signin and signUp for creating and and Logging the user
+user can login or signUp with 2 different ways 
+  1st: with manual entering name email passwords 
+  2nd: using socila authentication in this project i used google social authentication 
+in the project the is all user section in which you can find all users that present in db 
+and also on clicking init you can check user profile like name and email
+the there user perofile section in which you can change the password 
+only logged in user can only change and update password
+
