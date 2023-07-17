@@ -24,6 +24,17 @@ router.get("/profile/:id",passport.checkAuthentication, userController.profile);
 
 router.post("/update/:id", passport.checkAuthentication, userController.update);
 
+router.get('/forget-password', userController.forgotpassword);
+
+router.post('/forgotemail', userController.forgotemail);
+router.get('/newpassword', userController.passpage);
+
+router.post('/updatepassword', userController.updatepassword);
+
+
+
+
+
 router.get(
   "/auth/google",
   passport.authenticate("google", { scope: ["profile", "email"] })

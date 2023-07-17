@@ -1,28 +1,10 @@
 const User = require('../models/users');
-const userMailer = require('../mailers/signin_mailers')
-// controller action for profile 
-// module.exports.profile = async (req, res) =>{
- 
-//     try {
-//       const user = await User.findById(req.params.id).exec();
-//       console.log("find error",req.params);
-    
-//       if (!user) {
-//         console.log("User not found for profile  this line wkrinv");
-//         return res.redirect("back");
-//       }
-      
-//       return res.render("profile", {
-//         user: user,
-//         id: req.user.id
-//       });
-//     } catch (error) {
-//       console.log("Error in finding the user for profile:", error);
-      
-//       return res.redirect("back");
-//     }
+const Reset = require('../models/reset_password');
+const bcrypt = require('bcrypt');
+const userMailer = require('../mailers/signin_mailers');
+const passwordMailer = require('../mailers/password_reset_mailer');
 
-//   };
+
 
 module.exports.profile = async function(req, res){
   try{
@@ -114,12 +96,12 @@ module.exports.profile = async function(req, res){
 
 
    module.exports.createSession = async (req, res) => {
+    const email= req.body.email;
      req.flash('success', 'Logged in Successfully');
      const user = await User.findOne({ email: req.body.email }).exec();
+    console.log("finding user email",email);
       
-      
-   console.log("for user mail",user.email)
-     userMailer.newUser(user.email); 
+       userMailer.newUser(email); 
    
      return res.redirect('/');
    };
@@ -127,14 +109,7 @@ module.exports.profile = async function(req, res){
 
   // controller action for logout
   
-  // module.exports.destroy =(req, res)=> {
-  //   req.logout();
-  
-  //   req.flash("success", "You have logged out");
-  
-  //   return res.redirect("/users/sign-in");
-  // };
-
+ 
   module.exports.destroy = function (req, res) {
     req.logout(req.user, err => {
       if(err) return ;
@@ -146,16 +121,131 @@ module.exports.profile = async function(req, res){
   
   // controller action for signup
   module.exports.sign_up =(req, res)=> {
-    // if (req.isAuthenticated()){
-    //   return  res.redirect('/users/profile')
-    // }
+    if (req.isAuthenticated()){
+      return  res.redirect('/users/profile')
+    }
     return res.render("sign_up");
   };
    
   // controller action for signin
   module.exports.sign_in =(req, res)=> {
-    // if (req.isAuthenticated()){
-    //  return res.redirect('/users/profile')
-    // }
+    if (req.isAuthenticated()){
+     return res.redirect('/users/profile')
+    }
     return res.render("sign_in");
   };
+
+
+
+  module.exports.forgotpassword = function(req,res){
+    return res.render('forget_password',{
+        title: "Codeial | Forgot Password"
+    });
+}
+
+// controller for sending password reset link on mail
+module.exports.forgotemail = async function(req, res){
+  console.log('running')
+
+  try {
+    let user = await User.findOne({ email: req.body.email });
+    if (user) {
+      let updatetoken = await Reset.findOne({ email: req.body.email });
+      let randomNum = Math.round(Math.random() * 10000000);
+      let mail = user.email;
+
+      if (updatetoken) {
+        updatetoken.accessToken = randomNum;
+        updatetoken.expireIn = new Date().getTime() * 200 * 1000;
+        await updatetoken.save();
+        passwordMailer.newPasswordLink({ mail, randomNum });
+        req.flash('success', 'Link sent to email');
+        return res.redirect('/');
+      } else {
+        await Reset.create({
+          email: req.body.email,
+          accessToken: randomNum,
+          expireIn: new Date().getTime() * 200 * 1000
+        });
+        passwordMailer.newPasswordLink({ mail, randomNum });
+        req.flash('success', 'Link sent to email');
+        return res.redirect('/');
+      }
+    } else {
+      req.flash('error', 'Email id not found');
+      return res.redirect('/');
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+  // controller for password reset
+module.exports.passpage = async function(req, res){
+  try{
+      let user = await User.findOne({email:req.query.email});
+      if(user){
+          let passcheck = await Reset.findOne({email:req.query.email});
+          if(passcheck){
+              if(passcheck.accessToken == req.query.token){
+                  if(passcheck.expireIn - new Date().getTime() < 0){
+                      req.flash('error', 'Token expired');
+                      passcheck.remove();
+                      res.redirect('/');
+                  }else{
+                      return res.render('createpassword',{
+                          title: 'Create Password',
+                          email: req.query.email
+                      })
+                  }
+              }else{
+                  req.flash('error', 'Invalid token');
+                  res.redirect('/');
+              }
+          }
+      }else{
+          req.flash('error', 'Email id not found');
+          return res.redirect('/');
+      }
+
+  }catch(err){
+      console.log(err);
+  }
+}
+
+
+// controller action for update new  hashed password 
+module.exports.updatepassword = async function(req, res) {
+  try {
+    const granted = await Reset.findOne({ email: req.body.email });
+    if (granted) {
+      if (req.body.password !== req.body.confirm_password) {
+        req.flash('error', 'Passwords do not match');
+        return res.redirect('/');
+      }
+      const user = await User.findOne({ email: req.body.email });
+      if (!user) {
+        req.flash('error', 'User not found');
+        return res.redirect('/');
+      }
+      
+      // Encrypt the password
+      const saltRounds = 9;
+      const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+      user.password = hashedPassword;
+      
+      await user.save();
+
+      await Reset.deleteOne({ email: req.body.email });
+
+      req.flash('success', 'Password changed successfully');
+      return res.redirect('/users/sign-in');
+    } else {
+      req.flash('error', 'No permission granted');
+      return res.redirect('/');
+    }
+  } catch (err) {
+    console.log(err);
+  }
+};
+
